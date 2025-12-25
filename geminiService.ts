@@ -1,8 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize Gemini API with correct parameter name and process.env.API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize Gemini API with correct parameter name and process.VITE_GEMINI_API_KEY
+const ai = new GoogleGenAI({ apiKey: process.VITE_GEMINI_API_KEY});
 
 export const extractInvoiceData = async (base64Data: string, mimeType: string = 'application/pdf') => {
   // Using gemini-3-flash-preview for high speed and cost-efficiency (free tier optimization)
