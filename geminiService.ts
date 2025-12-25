@@ -1,7 +1,6 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-
-// Vite uses import.meta.env instead of process.env
+// Vite uses import.meta.env.VITE_... instead of process.env
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -11,44 +10,15 @@ export const extractInvoiceData = async (base64Data: string, mimeType: string = 
     model: "gemini-1.5-flash",
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: {
-        type: SchemaType.OBJECT,
-        properties: {
-          docType: { 
-            type: SchemaType.STRING, 
-            description: "One of: 'invoice', 'credit_note', 'debit_note', 'quote'" 
-          },
-          supplierName: { type: SchemaType.STRING },
-          date: { type: SchemaType.STRING, description: "Date in YYYY-MM-DD format" },
-          dueDate: { type: SchemaType.STRING, description: "Due date in YYYY-MM-DD format" },
-          deliveryLocation: { type: SchemaType.STRING },
-          invoiceNumber: { type: SchemaType.STRING },
-          bankAccount: { type: SchemaType.STRING },
-          creditTerm: { type: SchemaType.STRING },
-          address: { type: SchemaType.STRING },
-          abn: { type: SchemaType.STRING },
-          tel: { type: SchemaType.STRING },
-          email: { type: SchemaType.STRING },
-          totalAmount: { type: SchemaType.NUMBER },
-          gstAmount: { type: SchemaType.NUMBER },
-          items: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                name: { type: SchemaType.STRING },
-                quantity: { type: SchemaType.NUMBER },
-                unitPrice: { type: SchemaType.NUMBER },
-                total: { type: SchemaType.NUMBER },
-              },
-              required: ["name", "quantity", "unitPrice", "total"],
-            },
-          },
-        },
-        required: ["docType", "supplierName", "date", "dueDate", "invoiceNumber", "bankAccount", "creditTerm", "totalAmount", "gstAmount", "items", "address", "abn", "tel", "email"],
-      },
     },
   });
+
+  const prompt = `
+    Extract data from this document. Identify if it is an 'invoice', 'credit_note', 'debit_note', or 'quote'. 
+    Return a JSON object with: docType, supplierName, date (YYYY-MM-DD), dueDate (YYYY-MM-DD), 
+    invoiceNumber, bankAccount, creditTerm, totalAmount, gstAmount, abn, tel, email, address,
+    and items (array of objects with name, quantity, unitPrice, total).
+  `;
 
   const result = await model.generateContent([
     {
@@ -57,27 +27,16 @@ export const extractInvoiceData = async (base64Data: string, mimeType: string = 
         data: base64Data,
       },
     },
-    {
-      text: "Extract all items, quantities, and unit prices from this document. If information is missing, use 'N/A' or 0.",
-    },
+    { text: prompt },
   ]);
 
   const response = await result.response;
-  const resultText = response.text();
+  const text = response.text();
   
-  if (!resultText) {
-    throw new Error("Empty response from AI");
-  }
-
   try {
-    return JSON.parse(resultText);
+    return JSON.parse(text);
   } catch (error) {
-    console.error("Failed to parse Gemini response", error);
-    throw new Error("Could not extract structured data from document");
-  }
-};
-  } catch (error) {
-    console.error("Failed to parse Gemini response", error);
-    throw new Error("Could not extract structured data from document");
+    console.error("Failed to parse AI response:", text);
+    throw new Error("Invalid data format received from AI");
   }
 };
